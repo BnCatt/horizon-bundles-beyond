@@ -1,0 +1,86 @@
+[mod]
+id = "bundles_beyond"
+version = "0.1.0"
+priority = 100
+
+# Nightly 2026-11-04 (tag nightly-source/2026-11-04-3fb4c31). The OVERWRITE
+# helpers copy that revision's bodies: re-check them before moving the pin.
+[compatibility]
+horizon_revision = "3fb4c3138e0c5d8fdd2fdb555cf31368e8897497"
+
+[[module]]
+id = "core"
+file = "crates/horizon-items/src/bundle.rs"
+name = "bundles_beyond"
+source = "core.rs"
+visibility = "pub"
+
+[[injection]]
+id = "shown-count"
+kind = "RETURN"
+target = "horizon_items::bundle::Contents::shown_count"
+helper = "shown_count.rs"
+bindings = [
+  { name = "value", ty = "usize", value = "$value" },
+  { name = "contents", ty = "&Contents", value = "self" },
+]
+
+[[injection]]
+id = "layout"
+kind = "HEAD"
+cancellable = true
+target = "horizon_items::bundle::tooltip_layout"
+helper = "layout.rs"
+bindings = [
+  { name = "items", ty = "&Items", value = "items" },
+  { name = "stack", ty = "&ItemStack", value = "stack" },
+  { name = "x", ty = "f32", value = "x" },
+  { name = "y", ty = "f32", value = "y" },
+  { name = "box_width", ty = "f32", value = "box_width" },
+]
+
+[[injection]]
+id = "draw-stack-tooltip"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::stations::Game<'_>::draw_stack_tooltip_with"
+helper = "draw_tooltip.rs"
+bindings = [
+  { name = "game", ty = "&mut Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut HudBatch", value = "&mut *batch" },
+  { name = "stack", ty = "&ItemStack", value = "stack" },
+  { name = "creative", ty = "bool", value = "creative" },
+  { name = "x", ty = "f32", value = "x" },
+  { name = "y", ty = "f32", value = "y" },
+  { name = "after_name", ty = "&Vec<(horizon_client::text::Text, u32)>", value = "&after_name" },
+]
+
+[[injection]]
+id = "draw-bundle-tooltip"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::stations::Game<'_>::draw_bundle_tooltip"
+helper = "draw_bundle.rs"
+bindings = [
+  { name = "game", ty = "&mut Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut HudBatch", value = "&mut *batch" },
+  { name = "layout", ty = "&horizon_client::bundle::TooltipLayout", value = "layout" },
+]
+
+[[injection]]
+id = "keys"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::native_hooks::Game<'_>::screen_key_pressed"
+helper = "key.rs"
+bindings = [
+  { name = "game", ty = "&Game<'_>", value = "self" },
+  { name = "key", ty = "KeyCode", value = "key" },
+]
+
+[[injection]]
+id = "tick"
+kind = "HEAD"
+target = "horizon_client::game::bundles::Game<'_>::tick_bundle_hover"
+helper = "tick.rs"
+bindings = [{ name = "game", ty = "&mut Game<'_>", value = "&mut *self" }]
