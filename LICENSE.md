@@ -14,3 +14,11 @@ https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 The two drawing helpers in `mixins/bundles_beyond/` (`draw_tooltip.rs`,
 `draw_bundle.rs`) copy code of [Horizon](https://github.com/horizon-rust/horizon)
 (MIT, © Horizon contributors).
+
+## Review grant
+
+In addition to the licence above, BnCatt, the author of this port, lets the
+reviewers of the Horizon project and its mod registry
+([horizon-rust/horizon-mods](https://github.com/horizon-rust/horizon-mods))
+read, build and run this source in order to review it and every version
+submitted for listing.
