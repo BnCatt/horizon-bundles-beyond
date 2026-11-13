@@ -17,7 +17,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 MOD_ID = "bundles_beyond"
 BUNDLE = ROOT / "mixins" / MOD_ID
 # The horizon-mixins revision the launcher builds with (launcher/src/native_mods.rs MIXINS_REV).
-MIXINS_REV = "e8cd0aa38cffef49cb2e088ef716baa107148c02"
+MIXINS_REV = "5a64af938ec86b00d53d16a408aabc0038fb3e57"
 GAME = "26.3"
 
 

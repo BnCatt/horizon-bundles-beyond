@@ -25,11 +25,11 @@ it first):
 horizon-launcher native-build mixins/bundles_beyond --trust-native-code
 ```
 
-Pinned to Nightly 2026-11-04 (`3fb4c3138e0c5d8fdd2fdb555cf31368e8897497`). Two
+Pinned to Nightly 2026-11-13 (`9f42064c11efe7ef3e5ed2baad7ddc2a3b36eea0`). Two
 hooks stand in for whole function bodies (`draw_stack_tooltip_with`,
 `draw_bundle_tooltip`), so moving the pin means re-checking them against the
-new revision. It also applies and builds unchanged on Nightly 2026-11-05
-(`f319701`) with `--allow-version-mismatch`, next to other mods.
+new revision (0.1.1 re-copied `draw_stack_tooltip_with`: the tooltip pre-render
+hook, the empty bundle's description lines and `item_tooltip::bundle_tooltip`).
 
 A ready `.hnmod` is attached to the GitHub release; drop it into
 `horizon-native-mods/` and build in the launcher.

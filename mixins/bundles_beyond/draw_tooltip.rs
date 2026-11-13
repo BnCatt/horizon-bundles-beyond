@@ -12,18 +12,43 @@ fn bundles_beyond_draw_stack_tooltip_with(
     after_name: &Vec<(horizon_client::text::Text, u32)>,
 ) -> std::ops::ControlFlow<()> {
     use std::ops::ControlFlow::Break;
+    let mut cancel = false;
+    game.native_tooltip_render_pre(stack, batch, x, y, &mut cancel);
+    if cancel {
+        return Break(());
+    }
     let mut lines = game.stack_tooltip_lines(stack, false, creative);
     if lines.is_empty() {
         return Break(());
     }
     lines.splice(1..1, after_name.iter().cloned());
     let lines = Game::resolved(&lines);
-    let probe = horizon_client::bundle::tooltip_layout(game.items(), stack, 0.0, 0.0, 96.0);
+    // `getEmptyBundleDescriptionTextHeight`: the empty bundle's description
+    // wrapped at the component's 96 pixel width, 9 pixels a line.
+    let description_lines = game
+        .gui
+        .atlas
+        .font
+        .split_lines(
+            &horizon_client::text::Text::translate("item.minecraft.bundle.empty.description", &[]),
+            96.0,
+        )
+        .len()
+        .max(1);
+    let probe = horizon_client::item_tooltip::bundle_tooltip(
+        game.items(),
+        stack,
+        0.0,
+        0.0,
+        96.0,
+        description_lines,
+    );
     let bundle_extra = probe.as_ref().map_or(0.0, |l| l.height + 2.0);
     let mut component = None;
     game.native_tooltip_component(stack, &mut component);
     let component = tooltip_component_size(component);
     let extra = bundle_extra + component.map_or(0.0, |size| size[1] + 2.0);
+    // The one change: the grid's own width, not vanilla's fixed 96.
     let min_width = probe
         .as_ref()
         .map_or(0.0_f32, |l| l.width)
@@ -40,9 +65,14 @@ fn bundles_beyond_draw_stack_tooltip_with(
     let text_h = h - extra;
     let atlas = &game.gui.atlas;
     Game::tooltip_text(batch, atlas, &lines, x, y);
-    if let Some(layout) =
-        horizon_client::bundle::tooltip_layout(game.items(), stack, x, y + text_h + 2.0, w)
-    {
+    if let Some(layout) = horizon_client::item_tooltip::bundle_tooltip(
+        game.items(),
+        stack,
+        x,
+        y + text_h + 2.0,
+        w,
+        description_lines,
+    ) {
         game.draw_bundle_tooltip(batch, &layout);
         game.draw_bundle_selected_name(batch, &layout, x, y + text_h + 2.0, w);
     }
