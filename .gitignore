@@ -1,3 +1,4 @@
 dist/
 target/
+.horizon/
 __pycache__/

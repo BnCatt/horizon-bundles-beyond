@@ -1,13 +1,12 @@
-// Cancellable HEAD of `draw_bundle_tooltip`, standing in for its body
-// (OVERWRITE refuses a body with closures): the game's body with the progress
-// bar as wide as the grid (vanilla: 96) and Bundles Beyond's "n/64" label,
-// drawn as is rather than translated. Always breaks. Pinned to the revision in
-// horizon-mixin.toml.
+// Cancellable HEAD of `draw_bundle_tooltip`, standing in for its body: the
+// game's body (Nightly 0b14f8a) with the progress bar as wide as the grid
+// (vanilla: 96) and Bundles Beyond's "n/64" label drawn as is rather than
+// translated. Always breaks.
 fn bundles_beyond_draw_bundle_tooltip(
     game: &mut Game<'_>,
     batch: &mut HudBatch,
     layout: &horizon_client::bundle::TooltipLayout,
-) -> std::ops::ControlFlow<()> {
+) -> ::core::ops::ControlFlow<()> {
     for (i, (at, stack)) in layout.slots.iter().enumerate() {
         let selected = layout.selected == Some(i);
         let sprite = |name: &str| format!("gui/sprites/container/bundle/{name}");
@@ -71,28 +70,21 @@ fn bundles_beyond_draw_bundle_tooltip(
     } else {
         "gui/sprites/container/bundle/bundle_progressbar_fill"
     };
-    horizon_client::ui::nine_slice(
-        batch,
-        atlas,
-        fill_sprite,
-        bx + 1.0,
-        by,
-        layout.fill,
-        13.0,
-        u32::MAX,
-    );
+    horizon_client::ui::nine_slice(batch, atlas, fill_sprite, bx + 1.0, by, layout.fill, 13.0, u32::MAX);
+    // The one change: the grid's width, not vanilla's 96.
+    let bar_width = layout.width.max(96.0);
     horizon_client::ui::nine_slice(
         batch,
         atlas,
         "gui/sprites/container/bundle/bundle_progressbar_border",
         bx,
         by,
-        layout.width,
+        bar_width,
         13.0,
         u32::MAX,
     );
     if let Some(key) = layout.label {
-        let label = if horizon_client::bundle::bundles_beyond::is_weight_label(key) {
+        let label = if mod_bundles_beyond::is_weight_label(key) {
             horizon_client::text::Text::literal(key)
         } else {
             horizon_client::text::Text::translate(key, &[])
@@ -101,11 +93,11 @@ fn bundles_beyond_draw_bundle_tooltip(
         batch.text_styled(
             atlas,
             &label,
-            bx + (layout.width / 2.0).floor() - (w / 2.0).floor(),
+            bx + (bar_width / 2.0).floor() - (w / 2.0).floor(),
             by + 3.0,
             u32::MAX,
             true,
         );
     }
-    std::ops::ControlFlow::Break(())
+    ::core::ops::ControlFlow::Break(())
 }

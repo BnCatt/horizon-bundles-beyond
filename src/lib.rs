@@ -1,18 +1,19 @@
-// Bundles Beyond for Horizon: the shared logic, staged as the public module
-// `horizon_items::bundle::bundles_beyond` (`horizon_client::bundle::bundles_beyond`
-// from the game). It is a child of `bundle`, so it reads `Contents`' private
-// fields. Behaviour follows O7410's Bundles Beyond (CC BY-NC-SA 4.0) with its
+// Bundles Beyond for Horizon: the grid math, the selection moves and the key
+// queue. Behaviour follows O7410's Bundles Beyond (CC BY-NC-SA 4.0) with its
 // default settings: every item shown, a grid at least 4 wide and about square,
 // the wheel and the arrow / movement keys select any item, "n/64" on the bar.
-
-use super::{Contents, TooltipLayout};
-use crate::items::{ItemStack, Items};
+//
+// The game-side parts (the tooltip layout and the mixins) are in src/native.rs
+// and src/mixins/; they call the functions here. The crate itself has no hooks.
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-/// A slot of the tooltip grid, as vanilla draws it.
-pub const SLOT: f32 = 24.0;
+#[derive(Default)]
+struct Mod;
+
+#[mod_api::horizon_mod]
+impl mod_api::Hooks for Mod {}
 
 /// `getModifiedBundleTooltipColumns`: at least 4, else the ceiling of the square root.
 pub fn columns(size: usize) -> usize {
@@ -28,81 +29,23 @@ pub fn rows(size: usize, columns: usize) -> usize {
     size.div_ceil(columns.max(1))
 }
 
-/// "n/64": the bundle's weight in 64ths, as Bundles Beyond labels the bar.
-fn weight_label(contents: &Contents) -> &'static str {
+/// "n/64": the bundle's weight (0 to 1) in 64ths, as Bundles Beyond labels the bar.
+pub fn weight_label(fraction: f32) -> &'static str {
     static LABELS: OnceLock<Vec<&'static str>> = OnceLock::new();
     let labels = LABELS.get_or_init(|| {
         (0..=64)
             .map(|n| &*Box::leak(format!("{n}/64").into_boxed_str()))
             .collect()
     });
-    let w = contents.weight;
-    let n = if w.d == 0 { 0 } else { (w.n * 64 / w.d).clamp(0, 64) } as usize;
+    // The weight is a fraction of whole 64ths' multiples; the nudge keeps
+    // 31.9999 from reading 31.
+    let n = ((fraction * 64.0) + 1e-3).floor().clamp(0.0, 64.0) as usize;
     labels[n]
 }
 
 /// Whether a label is one of ours (drawn as is) rather than a translation key.
 pub fn is_weight_label(label: &str) -> bool {
     !label.contains('.')
-}
-
-/// `ClientBundleTooltip` with every item shown. None hands the stack back to
-/// vanilla: no bundle, or an empty one (its description layout stays vanilla's).
-pub fn layout(
-    items: &Items,
-    stack: &ItemStack,
-    x: f32,
-    y: f32,
-    box_width: f32,
-) -> Option<TooltipLayout> {
-    let contents = Contents::of(items, stack)?;
-    let size = contents.items.len();
-    if size == 0 {
-        return None;
-    }
-    let cols = columns(size);
-    let rows = rows(size, cols);
-    let width = cols as f32 * SLOT;
-    let grid_height = rows as f32 * SLOT;
-    let offset = ((box_width - width) / 2.0).floor();
-    let x_start = x + offset + width;
-    let y_start = y + grid_height;
-    let mut slots = Vec::with_capacity(size);
-    let mut selected = None;
-    // As vanilla: rows bottom-up, columns right-to-left, slot n holds item size - 1 - n.
-    let mut slot = 0;
-    'grid: for row in 1..=rows {
-        for column in 1..=cols {
-            if slot >= size {
-                break 'grid;
-            }
-            let at = [
-                x_start - column as f32 * SLOT,
-                y_start - row as f32 * SLOT,
-            ];
-            let index = size - 1 - slot;
-            if usize::try_from(contents.selected) == Ok(index) {
-                selected = Some(slots.len());
-            }
-            slots.push((at, contents.items[index].clone()));
-            slot += 1;
-        }
-    }
-    let bar_inner = width - 2.0;
-    Some(TooltipLayout {
-        width,
-        height: grid_height + 13.0 + 8.0,
-        slots,
-        selected,
-        overflow: None,
-        bar: [x + offset, y + grid_height + 4.0],
-        fill: (contents.weight_fraction() * bar_inner)
-            .trunc()
-            .clamp(0.0, bar_inner),
-        full: contents.is_full(),
-        label: Some(weight_label(&contents)),
-        empty_description: None,
-    })
 }
 
 /// A move of the selection with the arrow or movement keys.
@@ -186,8 +129,23 @@ pub fn navigate(size: usize, selected: i32, nav: Nav) -> i32 {
     }
 }
 
-// Keys arrive in a `&self` hook; the selection changes in the next tick, which
-// has the game mutably. The tick also says which slot holds a hovered bundle.
+/// The key name (`key.keyboard.up`) and the player's movement bindings, to a move.
+pub fn nav_for(name: &str, forward: &str, back: &str, left: &str, right: &str) -> Option<Nav> {
+    if name == "key.keyboard.up" || name == forward {
+        Some(Nav::Up)
+    } else if name == "key.keyboard.down" || name == back {
+        Some(Nav::Down)
+    } else if name == "key.keyboard.left" || name == left {
+        Some(Nav::Left)
+    } else if name == "key.keyboard.right" || name == right {
+        Some(Nav::Right)
+    } else {
+        None
+    }
+}
+
+// Keys arrive in a `&self` function; the selection changes in the next tick,
+// which has the game mutably. The tick also says which slot holds a hovered bundle.
 static PENDING: Mutex<Vec<(usize, Nav)>> = Mutex::new(Vec::new());
 static HOVERED: AtomicI64 = AtomicI64::new(-1);
 
@@ -236,10 +194,18 @@ mod tests {
         assert_eq!(navigate(6, 2, Nav::Left), 5);
         assert_eq!(navigate(6, 0, Nav::Down), 4);
         assert_eq!(navigate(6, 5, Nav::Up), 1);
-        // Up from an item under an empty cell, on a 2 high grid: nowhere.
         assert_eq!(navigate(6, 2, Nav::Up), -1);
-        // One row: the first key selects, the next clears.
         assert_eq!(navigate(3, -1, Nav::Down), 0);
         assert_eq!(navigate(3, 0, Nav::Down), -1);
+    }
+
+    #[test]
+    fn the_label_counts_whole_64ths() {
+        assert_eq!(weight_label(0.0), "0/64");
+        assert_eq!(weight_label(0.5), "32/64");
+        assert_eq!(weight_label(31.0 / 64.0), "31/64");
+        assert_eq!(weight_label(1.0), "64/64");
+        assert!(is_weight_label("32/64"));
+        assert!(!is_weight_label("item.minecraft.bundle.full"));
     }
 }

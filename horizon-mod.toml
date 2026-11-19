@@ -1,0 +1,106 @@
+id = "bundles_beyond"
+name = "Bundles Beyond"
+version = "0.2.0"
+description = "Bundles Beyond for Horizon: a bundle's tooltip shows every item in a grid that grows with it, the wheel and the arrow or movement keys select any of them, and the bar reads n/64."
+authors = ["BnCatt"]
+api = "0.2"
+side = "client"
+capabilities = ["registries"]
+
+# Behaviour follows O7410's Bundles Beyond (CC BY-NC-SA 4.0) with its default
+# settings. Pinned: the bundle tooltip, wheel and selection are not behind
+# hooks. The mixins below copy or wrap that build's functions; re-read them
+# before moving the pin:
+#   game/blocks/stations.rs           Game::draw_bundle_tooltip (body copy)
+#   game/blocks/stations/tooltip.rs   Game::draw_tooltip_image (wrap of bundle_tooltip)
+#   game/items/bundles.rs             Game::bundle_scroll (body copy), tick_bundle_hover
+#   game/native_hooks/shared.rs (module native_hooks) Game::screen_key_pressed
+#   game/native_hooks/render_tooltip_gather_components.rs (the image's size)
+[native]
+game = "26.3"
+horizon = "0b14f8acfd97fa2c750e42795249dcc981178ca4"
+mixins = "e59da9094f0c2fdda6c627fe9eff22dec6a906f0"
+
+# The grid layout, beside the game's bundle code so it can name its types.
+[[native.module]]
+id = "grid"
+file = "crates/horizon-client/src/game/items/bundles.rs"
+name = "bundles_beyond"
+source = "src/native.rs"
+
+# The tooltip image is as big as our grid (vanilla: 96 wide, its own height).
+[[native.mixin]]
+id = "image-size"
+target = "horizon_client::game::native_hooks::render_tooltip_gather_components::Game<'_>::native_render_tooltip_gather_components"
+kind = "HEAD"
+helper = "src/mixins/image_size.rs"
+bindings = [
+  { name = "game", ty = "&Game<'_>", value = "self" },
+  { name = "stack", ty = "&ItemStack", value = "stack" },
+  { name = "elements", ty = "&mut Vec<TooltipElement>", value = "&mut *elements" },
+]
+
+# The grid that shows every item, where vanilla's tooltip would draw its own.
+[[native.mixin]]
+id = "layout"
+target = "horizon_client::game::stations::tooltip::Game<'_>::draw_tooltip_image"
+kind = "WRAP_OPERATION"
+selector = "horizon_client::item_tooltip::bundle_tooltip"
+require = 1
+ordinal = 0
+helper = "src/mixins/layout.rs"
+bindings = [
+  { name = "items", ty = "&horizon_client::items::Items", value = "$arg0" },
+  { name = "stack", ty = "&ItemStack", value = "$arg1" },
+  { name = "x", ty = "f32", value = "$arg2" },
+  { name = "y", ty = "f32", value = "$arg3" },
+  { name = "box_width", ty = "f32", value = "$arg4" },
+  { name = "lines", ty = "usize", value = "$arg5" },
+  { name = "operation", ty = "impl FnOnce(&horizon_client::items::Items, &ItemStack, f32, f32, f32, usize) -> Option<horizon_client::bundle::TooltipLayout>", value = "$operation" },
+]
+
+# The bar as wide as the grid, and the "n/64" label drawn as is.
+[[native.mixin]]
+id = "draw-bundle"
+target = "horizon_client::game::stations::Game<'_>::draw_bundle_tooltip"
+kind = "HEAD"
+cancellable = true
+helper = "src/mixins/draw_bundle.rs"
+bindings = [
+  { name = "game", ty = "&mut Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut HudBatch", value = "&mut *batch" },
+  { name = "layout", ty = "&horizon_client::bundle::TooltipLayout", value = "layout" },
+]
+
+# The wheel reaches every item (BundleContents.getNumberOfItemsToShow: all).
+[[native.mixin]]
+id = "scroll"
+target = "horizon_client::game::bundles::Game<'_>::bundle_scroll"
+kind = "HEAD"
+cancellable = true
+helper = "src/mixins/scroll.rs"
+bindings = [
+  { name = "game", ty = "&mut Game<'_>", value = "&mut *self" },
+  { name = "x", ty = "f64", value = "x" },
+  { name = "y", ty = "f64", value = "y" },
+]
+
+# The arrow and movement keys over a bundle move its selection.
+[[native.mixin]]
+id = "keys"
+target = "horizon_client::game::native_hooks::Game<'_>::screen_key_pressed"
+kind = "HEAD"
+cancellable = true
+helper = "src/mixins/key.rs"
+bindings = [
+  { name = "game", ty = "&Game<'_>", value = "self" },
+  { name = "key", ty = "KeyCode", value = "key" },
+]
+
+# Which slot holds the hovered bundle, and the key moves queued since last tick.
+[[native.mixin]]
+id = "tick"
+target = "horizon_client::game::bundles::Game<'_>::tick_bundle_hover"
+kind = "HEAD"
+helper = "src/mixins/tick.rs"
+bindings = [{ name = "game", ty = "&mut Game<'_>", value = "&mut *self" }]
